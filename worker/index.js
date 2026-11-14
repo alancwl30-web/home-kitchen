@@ -1,0 +1,15 @@
+const DEFAULTS=[...['茼蒿','青芹','皇帝菜','秋葵','蠔','蝦','羊肉','芫荽','甘筍'].map(name=>({name,level:'避開'})),...['燕麥','薯粉'].map(name=>({name,level:'少食'}))];
+const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
+export default {async fetch(request,env){const url=new URL(request.url);if(url.pathname==='/api/preferences'){
+ if(!env.BUCKET)return json({error:'storage unavailable'},503);
+ if(request.method==='GET'){try{let obj=await env.BUCKET.get('home-kitchen-preferences-v1.json');return json(obj?await obj.json():{preferences:DEFAULTS,dismissed:[],liked:[]});}catch{return json({error:'read failed'},503);}}
+ if(request.method==='PUT'){
+  if(request.headers.get('Origin')!==url.origin)return json({error:'invalid origin'},403);
+  if(Number(request.headers.get('content-length')||0)>20000)return json({error:'too large'},413);
+  try{let raw=await request.text();if(raw.length>20000)return json({error:'too large'},413);let d=JSON.parse(raw);if(!Array.isArray(d.preferences)||d.preferences.length>100||!d.preferences.every(x=>typeof x.name==='string'&&x.name.trim().length>0&&x.name.length<=40&&['避開','少食'].includes(x.level)))return json({error:'invalid preferences'},400);for(let k of ['dismissed','liked'])if(!Array.isArray(d[k])||d[k].length>1000||!d[k].every(n=>Number.isInteger(n)&&n>=1&&n<=1000))return json({error:'invalid feedback'},400);
+  let previous=await env.BUCKET.get('home-kitchen-preferences-v1.json');let prior=previous?await previous.json():{};let known=d.known??prior.known??[];if(!Array.isArray(known)||known.length>1000||!known.every(n=>Number.isInteger(n)&&n>=1&&n<=1000))return json({error:'invalid known recipes'},400);let cooking=d.cooking??prior.cooking;if(cooking&&(!Array.isArray(cooking.preferred)||!Array.isArray(cooking.rare)||cooking.preferred.length>50||cooking.rare.length>50||![...cooking.preferred,...cooking.rare].every(n=>typeof n==='string'&&n.length<=40)||typeof cooking.simple!=='boolean'||typeof cooking.seafoodLearner!=='boolean'))return json({error:'invalid cooking preferences'},400);let saved={...(cooking?{cooking}:{}),preferences:d.preferences.map(x=>({name:x.name.trim(),level:x.level})),dismissed:[...new Set([...(prior.dismissed||[]),...d.dismissed])].filter(id=>![24,38,40].includes(id)),liked:[...new Set(d.liked)].filter(id=>![24,38,40].includes(id)),known:[...new Set(known)].filter(id=>![24,38,40].includes(id)),updatedAt:new Date().toISOString()};await env.BUCKET.put('home-kitchen-preferences-v1.json',JSON.stringify(saved),{httpMetadata:{contentType:'application/json'}});return json({ok:true});}catch{return json({error:'save failed'},503);}
+ }
+ return json({error:'method not allowed'},405);
+ }
+ if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405});let asset=ASSETS[url.pathname==='/'?'/index.html':url.pathname];if(!asset)return new Response('Not found',{status:404});let bytes=Uint8Array.from(atob(asset.body),c=>c.charCodeAt(0));return new Response(request.method==='HEAD'?null:bytes,{headers:{'Content-Type':asset.mime,'Cache-Control':'no-cache','X-Content-Type-Options':'nosniff'}});
+}};

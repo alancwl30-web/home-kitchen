@@ -1,0 +1,15 @@
+{
+  "name": "home-kitchen",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "屋企煮：港式家常食譜、食材配對及營養估算",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/build.mjs && node scripts/check.mjs",
+    "dev": "node scripts/preview.mjs"
+  }
+}
