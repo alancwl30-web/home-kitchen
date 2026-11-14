@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {stage,receive,acknowledge,requireRevision} from '../web/cloud-state.mjs';
+const state={version:1,pantry:[],favorites:[],avoid:[],shopping:[],dismissed:[],liked:[],known:[],profile:{equip:[]},cooking:{},skills:{}};
+let cache={data:state,revision:0,pending:false,token:''};
+cache=stage(cache,{...state,favorites:[41]},'first');
+assert.equal(cache.pending,true);
+const conflict=receive(cache,{data:state,revision:1});assert.equal(conflict.conflict,true);assert.deepEqual(conflict.cache.data.favorites,[41]);
+assert.throws(()=>requireRevision(0,1),/sync-conflict/);
+const newer=stage(cache,{...state,favorites:[41,42]},'second');const ack=acknowledge(newer,'first',1);assert.equal(ack.pending,true);assert.deepEqual(ack.data.favorites,[41,42]);assert.equal(ack.revision,1);
+const final=acknowledge(ack,'second',2);assert.equal(final.pending,false);
+const remote=receive(final,{data:{...state,pantry:['雞蛋']},revision:3});assert.deepEqual(remote.cache.data.pantry,['雞蛋']);assert.equal(remote.cache.pending,false);
+assert.throws(()=>stage(cache,{...state,version:0},'bad'),/invalid-state/);
+console.log('Cloud state: conflict protection, newer edits during writes, acknowledgement and remote updates passed.');

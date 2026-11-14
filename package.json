@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "check": "node scripts/build.mjs && node scripts/check.mjs",
+    "check": "node scripts/build.mjs && node scripts/check.mjs && node scripts/test-cloud-state.mjs && node --experimental-vm-modules scripts/test-firebase-ui.mjs",
     "dev": "node scripts/preview.mjs"
   }
 }
